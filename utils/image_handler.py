@@ -47,3 +47,12 @@ class ImageHandler():
     def get_size(self, img: PImage) -> Tuple[int, int]:
         return img.size
 
+if __name__ == "__main__":
+    car_path = Path("/home/ventilas/Pictures/car.png")
+    resolution = 100
+    handler = ImageHandler()
+    img = handler.get_image(car_path)
+    grid_img = handler.crop_image(img, resolution)
+    grid_img.filename = "new_car.png"
+    save_path = Path("/home/ventilas/Pictures/")
+    handler.save_image(grid_img, save_path)
