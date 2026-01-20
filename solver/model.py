@@ -1,38 +1,29 @@
 from pyscipopt import Model, quicksum, SCIP_PARAMEMPHASIS
 from math import ceil
-import numpy as np
 
 from typing import Optional, Tuple
 
 class SCIPSolver():
     ''' Position and Covering solver with SCIP model '''
-    def __init__(self, items: dict, strip_width: int, init_height: Optional[int] = None):
-        self.items = items
-        self.W = strip_width
-
-        if init_height:
-            self.H = init_height
-        else:
-            self.H = ceil(sum(i["w"] * i["h"] for i in items) / self.W)
-
+    def __init__(self, init_height: Optional[int] = None):
         self.model = None
         self.reset()
 
-    def set_positions(self) -> dict:
+    def set_positions(self, items: dict, W: int, H: int) -> dict:
         ''' Maps all the valid positions for each item '''
         placements = []
         pid = 0
     
-        for item in self.items:
+        for item in items:
             w = item["w"]
             h = item["h"]
 
             # ignoring items that dont fit in the curently strip
-            if(self.W <= w or self.H <= h):
+            if(W <= w or H <= h):
                 continue
 
-            for x in range(self.W - w + 1):
-                for y in range(h, self.H - h + 1):
+            for x in range(W - w + 1):
+                for y in range(h, H - h + 1):
                     cells = [(x + dx, y + dy)
                              for dx in range(w)
                              for dy in range(h)]
@@ -45,7 +36,7 @@ class SCIPSolver():
 
         return placements
 
-    def is_feasible(self, placements: dict) -> Tuple[bool, dict]:
+    def is_feasible(self, placements: dict, W: int, H: int) -> Tuple[bool, dict]:
         x = {p["pid"]: self.model.addVar(vtype='B', name = f"x_{p["pid"]}")
              for p in placements}
 
@@ -63,7 +54,7 @@ class SCIPSolver():
                           name = "All items into strip Constraint")
     
         # Constraint (3): Determines that the capacity of the strip should not be exceeded.
-        self.model.addCons(quicksum(len(p["cells"]) * x[p["pid"]] for p in placements) <= self.W * self.H)
+        self.model.addCons(quicksum(len(p["cells"]) * x[p["pid"]] for p in placements) <= W * H)
 
         # Feasibility
         self.model.setObjective(0)
@@ -73,22 +64,25 @@ class SCIPSolver():
 
         return (True if self.model.getStatus() == "optimal" else False, x)
 
-    def solve(self) -> dict:
+    def solve(self, items: dict, strip_width: int) -> dict:
+        W = strip_width
+        H = ceil(sum(i["w"] * i["h"] for i in items) / W)
+
         feasible = False
         while(not feasible):
             self.reset()
 
-            placements = self.set_positions()
-            feasible, x = self.is_feasible(placements)
-
-            self.H += 1
+            placements = self.set_positions(items, W, H)
+            feasible, x = self.is_feasible(placements, W, H)
+            
+            H += 1 if feasible else 0
 
         optimal_results = {}
         for p in placements:
             if self.model.getVal(x[p["pid"]]) == 1:
                 optimal_results[p["item_id"]] = p["position"]
 
-        return optimal_results
+        return optimal_results, H
 
     def reset(self) -> None:
         if self.model:
@@ -122,6 +116,6 @@ if __name__ == "__main__":
         {"id": 19, "w": 2, "h": 8},
        ]
 
-    solver = SCIPSolver(items, strip_width = 30)
+    solver = SCIPSolver()
 
-    print(solver.solve())
+    print(solver.solve(items, 30))
