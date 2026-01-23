@@ -14,29 +14,29 @@ class SCIPSolver():
         placements = []
         pid = 0
     
-        for item in items:
-            w = item["w"]
-            h = item["h"]
+        for i in items:
+            w = items[i]["w"]
+            h = items[i]["h"]
 
             # ignoring items that dont fit in the curently strip
-            if(W <= w or H <= h):
+            if(W < w or H < h):
                 continue
 
-            for x in range(W - w + 1):
-                for y in range(h, H - h + 1):
+            for x in range(W - w):
+                for y in range(H - h):
                     cells = [(x + dx, y + dy)
                              for dx in range(w)
                              for dy in range(h)]
                     
                     placements.append({"pid": pid,
-                                       "item_id": item["id"],
+                                       "item_id": i,
                                        "position": (x, y),
                                        "cells": cells})
                     pid += 1
 
         return placements
 
-    def is_feasible(self, placements: dict, W: int, H: int) -> Tuple[bool, dict]:
+    def is_feasible(self, items: dict, placements: dict, W: int, H: int) -> Tuple[bool, dict]:
         x = {p["pid"]: self.model.addVar(vtype='B', name = f"x_{p["pid"]}")
              for p in placements}
 
@@ -48,9 +48,8 @@ class SCIPSolver():
                           name = "Overlapping Constraint")
 
         # Constraint (2): Guarantee that all items will be packed into the strip
-        for item in items:
-            i = item["id"]
-            self.model.addCons(quicksum(x[p["pid"]] for p in placements if p["item_id"] == i) == 1,
+        for id in items:
+            self.model.addCons(quicksum(x[p["pid"]] for p in placements if p["item_id"] == id) == 1,
                           name = "All items into strip Constraint")
     
         # Constraint (3): Determines that the capacity of the strip should not be exceeded.
@@ -66,16 +65,17 @@ class SCIPSolver():
 
     def solve(self, items: dict, strip_width: int) -> dict:
         W = strip_width
-        H = ceil(sum(i["w"] * i["h"] for i in items) / W)
+        H = ceil(sum(items[i]['w'] * items[i]['h'] for i in items) / W)
 
         feasible = False
         while(not feasible):
+            print(H)
             self.reset()
 
             placements = self.set_positions(items, W, H)
-            feasible, x = self.is_feasible(placements, W, H)
+            feasible, x = self.is_feasible(items, placements, W, H)
             
-            H += 1 if feasible else 0
+            H += 1 if not feasible else 0
 
         optimal_results = {}
         for p in placements:
@@ -93,29 +93,10 @@ class SCIPSolver():
         self.model.hideOutput()
 
 if __name__ == "__main__":
-    items = [
-        {"id": 0, "w": 6, "h": 5},
-        {"id": 1, "w": 5, "h": 4},
-        {"id": 2, "w": 4, "h": 6},
-        {"id": 3, "w": 7, "h": 4},
-        {"id": 4, "w": 3, "h": 7},
-        {"id": 5, "w": 8, "h": 3},
-        {"id": 6, "w": 4, "h": 5},
-        {"id": 7, "w": 6, "h": 4},
-        {"id": 8, "w": 5, "h": 5},
-        {"id": 9, "w": 2, "h": 8},
-        {"id": 10, "w": 6, "h": 5},
-        {"id": 11, "w": 5, "h": 4},
-        {"id": 12, "w": 4, "h": 6},
-        {"id": 13, "w": 7, "h": 4},
-        {"id": 14, "w": 3, "h": 7},
-        {"id": 15, "w": 8, "h": 3},
-        {"id": 16, "w": 4, "h": 5},
-        {"id": 17, "w": 6, "h": 4},
-        {"id": 18, "w": 5, "h": 5},
-        {"id": 19, "w": 2, "h": 8},
-       ]
+    items = {
+        "1": {"w": 6, "h": 5},
+        "2": {"w": 5, "h": 4}}
 
     solver = SCIPSolver()
 
-    print(solver.solve(items, 30))
+    print(solver.solve(items, 8))
