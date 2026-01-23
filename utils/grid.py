@@ -1,4 +1,4 @@
-from image_handler import ImageHandler
+from .image_handler import ImageHandler
 
 from PIL import Image
 from PIL.Image import Image as PImage
@@ -24,15 +24,16 @@ class Grid():
         
         for id, item in self.items.items():
             optimal_x, optimal_y = optimal_placement[id]
-            optimal_grid.paste(item["image"], (optimal_x * self.resolution, optimal_y * resolution))
+            print(optimal_x, optimal_y, item["w"], item["h"])
+            optimal_grid.paste(item["image"], (optimal_x * self.resolution, optimal_y * self.resolution), item["image"])
 
         return optimal_grid 
 
-    def add(self, img: PImage | Path) -> None:
-        if img.isinstance(Path):
+    def add(self, img: PImage | Path) -> str:
+        if isinstance(img, Path):
             img = self.handler.get_image(img)
         
-        img = self.handler.crop(img)
+        img = self.handler.crop_image(img, self.resolution)
 
         # Sanity check
         assert img.size[0] % self.resolution == 0
@@ -44,7 +45,7 @@ class Grid():
 
         self.items[id] = {'w': w // self.resolution, 'h': h // self.resolution, "image": img}
 
-        return None
+        return id
 
     def remove(self, item_id: int) -> None:
         del self.items[item_id]
